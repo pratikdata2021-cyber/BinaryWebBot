@@ -138,12 +138,12 @@ const Hero: React.FC<HeroProps> = ({ onSearchClick }) => {
       </div>
 
       {/* Search Bar Section - Acts as Trigger */}
-      <div className="w-full max-w-3xl relative z-20 flex flex-col items-center gap-8">
+      <div className="w-full max-w-4xl relative z-20 flex flex-col items-center gap-8">
         {/* Glow effect behind search */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-cyan-200/30 blur-3xl rounded-full -z-10"></div>
         
         {/* Search Input Trigger */}
-        <div className="w-full relative group">
+        <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-y-0 left-3 flex items-center pl-2 pointer-events-none z-10">
              {/* The colorful orb icon inside input */}
              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-cyan-500 flex items-center justify-center text-white shadow-md">
@@ -169,11 +169,12 @@ const Hero: React.FC<HeroProps> = ({ onSearchClick }) => {
         {/* Suggestion Chips */}
         <div className="flex flex-wrap justify-center gap-3 w-full">
           {[
-            'Looking for smarter insurance?',
-            'Ready to optimize fleets?',
-            'Exploring data-driven growth?',
-            'Planning digital transformation?',
-            'Aiming for smarter operations?'
+            'Looking for smarter insurance with VISoF?',
+            'Ready to optimize fleets with Fleetrobo?',
+            'Streamlining compliance with GSTrobo?',
+            'Exploring AI Products for growth?',
+            'Planning digital transformation (DX)?',
+            'Aiming to innovate with EdTech?'
           ].map((chip, idx) => (
             <button 
               key={idx}

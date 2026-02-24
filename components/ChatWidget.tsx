@@ -1,5 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, ArrowRight, Sparkles, Copy, ThumbsUp, ThumbsDown, RotateCcw, Share2, Mail, User, Plus, Download, ExternalLink, ChevronDown } from 'lucide-react';
+import { GoogleGenAI, Type } from "@google/genai";
+import scrapedData from '@/scraped_content_b0453cbe-8590-4143-a6b3-0fb851d2ba7e (1).json';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Prepare context from scraped data (truncate to avoid excessive payload size if needed)
+const websiteContext = Object.entries(scrapedData)
+  .filter(([key]) => key !== 'processed_urls')
+  .map(([url, content]) => `Source: ${url}\n${content}`)
+  .join('\n\n')
+  .substring(0, 400000); // ~100k tokens for fast processing
 
 interface ChatWidgetProps {
   onClose: () => void;
@@ -14,6 +25,7 @@ interface RichResponse {
     title: string;
     type: 'Learn more' | 'Download brochure' | 'Case study';
     image: string;
+    url: string;
   }[];
   suggestions: string[];
 }
@@ -31,8 +43,44 @@ const WhatsAppIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
+// --- Sub-component: Message Action Bar ---
+const MessageActionBar = ({ 
+  onShare, 
+  className = '' 
+}: { 
+  onShare: (p: 'whatsapp' | 'email') => void, 
+  className?: string 
+}) => (
+  <div className={`flex items-center justify-between w-full max-w-4xl mt-3 px-1 ${className}`}>
+      <div className="flex items-center gap-3">
+           <button className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-purple-600 transition-colors">
+              <RotateCcw size={13} /> 
+              Regenerate 
+           </button>
+           <div className="flex items-center gap-1">
+               <button className="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Thumbs Up"><ThumbsUp size={14} /></button>
+               <button className="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Thumbs Down"><ThumbsDown size={14} /></button>
+           </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+           <button className="p-1 text-gray-400 hover:text-green-600 transition-colors" onClick={() => onShare('whatsapp')} title="WhatsApp"><WhatsAppIcon size={15} /></button>
+           <button className="p-1 text-gray-400 hover:text-purple-600 transition-colors" onClick={() => onShare('email')} title="Email"><Mail size={15} /></button>
+           <button className="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Copy"><Copy size={14} /></button>
+      </div>
+  </div>
+);
+
 // --- Sub-component: Bot Message Renderer ---
-const BotMessageRenderer = ({ data, onSuggestionClick }: { data: RichResponse, onSuggestionClick: (s: string) => void }) => {
+const BotMessageRenderer = ({ 
+  data, 
+  onSuggestionClick,
+  onShare
+}: { 
+  data: RichResponse, 
+  onSuggestionClick: (s: string) => void,
+  onShare: (p: 'whatsapp' | 'email') => void
+}) => {
   const [displayedIntro, setDisplayedIntro] = useState('');
   const [showSections, setShowSections] = useState(false);
 
@@ -80,10 +128,10 @@ const BotMessageRenderer = ({ data, onSuggestionClick }: { data: RichResponse, o
       {/* 2. CTA Section (Static) */}
       <div className={`space-y-2 pt-1 text-[15px] text-gray-700 leading-relaxed transition-all duration-700 delay-200 ease-out ${showSections ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <p>
-          If you’d like to see specific business cases or request tailored solution mapping, please <a href="#" className="font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5">Request a proposal <ExternalLink size={13} strokeWidth={2.5} /></a>.
+          If you’d like to see specific business cases or request tailored solution mapping, please <a href="https://binarysemantics.com/contact-us" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5">Request a proposal <ExternalLink size={13} strokeWidth={2.5} /></a>.
         </p>
         <p>
-          For more details or collaboration opportunities, please <a href="#" className="font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5">Contact Us <ExternalLink size={13} strokeWidth={2.5} /></a>.
+          For more details or collaboration opportunities, please <a href="https://binarysemantics.com/contact-us" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5">Contact Us <ExternalLink size={13} strokeWidth={2.5} /></a>.
         </p>
       </div>
 
@@ -94,7 +142,7 @@ const BotMessageRenderer = ({ data, onSuggestionClick }: { data: RichResponse, o
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {data.related.map((item, idx) => (
-            <div key={idx} className="group relative h-48 rounded-xl overflow-hidden cursor-pointer shadow-card border border-gray-100 hover:shadow-xl transition-all duration-300 bg-gray-900">
+            <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="group relative h-48 rounded-xl overflow-hidden cursor-pointer shadow-card border border-gray-100 hover:shadow-xl transition-all duration-300 bg-gray-900 block">
               {/* Image Background */}
               <img 
                 src={item.image} 
@@ -116,7 +164,7 @@ const BotMessageRenderer = ({ data, onSuggestionClick }: { data: RichResponse, o
                   <ArrowRight size={14} className="ml-1.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>
@@ -144,6 +192,12 @@ const BotMessageRenderer = ({ data, onSuggestionClick }: { data: RichResponse, o
             ))}
          </div>
       </div>
+      
+      {/* 5. Action Bar (Moved here for proper sequencing) */}
+      <MessageActionBar 
+          onShare={onShare} 
+          className={`transition-all duration-700 delay-700 ease-out ${showSections ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+      />
 
     </div>
   );
@@ -162,11 +216,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
   const initialQueryHandled = useRef(false);
 
   const suggestions = [
-    'Looking for smarter insurance?',
-    'Ready to optimize fleets?',
-    'Exploring data-driven growth?',
-    'Planning digital transformation?',
-    'Aiming for smarter operations?'
+    'Looking for smarter insurance with VISoF?',
+    'Ready to optimize fleets with Fleetrobo?',
+    'Streamlining compliance with GSTrobo?',
+    'Exploring AI Products for growth?',
+    'Planning digital transformation (DX)?',
+    'Aiming to innovate with EdTech?'
   ];
 
   const fullPlaceholder = "Ask, search, and explore with iChatrobo";
@@ -200,17 +255,20 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
         {
           title: "Intelligent Insurance Automation Suite",
           type: "Learn more",
-          image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop"
+          image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop",
+          url: "https://www.binarysemantics.com/industries/insurance"
         },
         {
           title: "Binary Semantics and Google Cloud Partnership",
           type: "Case study",
-          image: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=400&auto=format&fit=crop"
+          image: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=400&auto=format&fit=crop",
+          url: "https://www.binarysemantics.com/case-studies"
         },
         {
           title: "Smart Fleet Management Solutions Brochure",
           type: "Download brochure",
-          image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=400&auto=format&fit=crop"
+          image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=400&auto=format&fit=crop",
+          url: "https://www.binarysemantics.com/products/fleetrobo"
         }
       ],
       suggestions: [
@@ -228,7 +286,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
          { content: "<span class='font-bold text-gray-900'>Predictive Maintenance</span> alerts that prevent costly breakdowns by analyzing engine health data." },
          { content: "Comprehensive <span class='font-bold text-gray-900'>Driver Behavior Analysis</span> to improve safety standards and reduce insurance premiums." }
       ];
-      response.related[0] = { title: "Fleet Telematics Dashboard Demo", type: "Learn more", image: "https://images.unsplash.com/photo-1592861956120-e524fc739696?q=80&w=400" };
+      response.related[0] = { title: "Fleet Telematics Dashboard Demo", type: "Learn more", image: "https://images.unsplash.com/photo-1592861956120-e524fc739696?q=80&w=400", url: "https://www.binarysemantics.com/products/fleetrobo" };
       response.suggestions = ["How does the driver behavior scoring work?", "Can this integrate with existing ERP systems?", "What hardware is required for tracking?"];
     }
 
@@ -239,14 +297,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
          { content: "AI-driven <span class='font-bold text-gray-900'>Claims Processing</span> that reduces turnaround time from days to minutes." },
          { content: "Hyper-personalized <span class='font-bold text-gray-900'>Customer Engagement</span> tools powered by conversational AI." }
       ];
-      response.related[0] = { title: "AI in Insurance: A Whitepaper", type: "Download brochure", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=400" };
+      response.related[0] = { title: "AI in Insurance: A Whitepaper", type: "Download brochure", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=400", url: "https://www.binarysemantics.com/industries/insurance" };
       response.suggestions = ["How does the fraud detection system work?", "Is the platform compliant with GDPR?", "Can I see a demo of the claims module?"];
     }
 
     return response;
   };
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
     // Add user message
@@ -255,20 +313,76 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
     setInputValue('');
     setIsTyping(true);
 
-    // Fetch Rich Data
-    const data = getBotResponseData(text);
-    
-    // Simulate Network Delay (Thinking)
-    setTimeout(() => {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `You are a helpful assistant for Binary Semantics. Answer the user's query based on the provided scraped website content.
+        
+        Website Content:
+        ${websiteContext}
+        
+        User Query: ${text}
+        
+        Provide a structured response.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              intro: { type: Type.STRING, description: "A short introductory paragraph answering the query." },
+              sections: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    content: { type: Type.STRING, description: "A detailed point or section. You can use HTML <span> tags with Tailwind classes like <span class='font-bold text-gray-900'> for emphasis." }
+                  }
+                }
+              },
+              related: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    type: { type: Type.STRING, description: "Must be one of: 'Learn more', 'Download brochure', 'Case study'" },
+                    image: { type: Type.STRING, description: "A relevant Unsplash image URL, e.g., https://images.unsplash.com/photo-..." },
+                    url: { type: Type.STRING, description: "A relevant URL from the provided website content." }
+                  }
+                }
+              },
+              suggestions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "3 follow-up questions the user can ask."
+              }
+            },
+            required: ["intro", "sections", "related", "suggestions"]
+          }
+        }
+      });
+
+      const data = JSON.parse(response.text || "{}") as RichResponse;
+      
       setIsTyping(false);
-      // Add Bot Message with Rich Data
       setMessages(prev => [...prev, { 
         id: (Date.now() + 1).toString(), 
         role: 'bot', 
-        content: data.intro, // Text fallback for history if needed
+        content: data.intro, 
         richData: data 
       }]);
-    }, 1200);
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      // Fallback to mock data if API fails
+      const data = getBotResponseData(text);
+      setIsTyping(false);
+      setMessages(prev => [...prev, { 
+        id: (Date.now() + 1).toString(), 
+        role: 'bot', 
+        content: data.intro, 
+        richData: data 
+      }]);
+    }
   };
 
   // Initial Query & Scroll handlers
@@ -359,32 +473,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose, initialQuery = '' }) =
                         <BotMessageRenderer 
                             data={msg.richData} 
                             onSuggestionClick={handleSend} 
+                            onShare={handleShare}
                         />
                       ) : (
-                        <p className="text-[15px] text-gray-700 leading-relaxed">{msg.content}</p>
+                        <div className="space-y-4">
+                          <p className="text-[15px] text-gray-700 leading-relaxed">{msg.content}</p>
+                          <MessageActionBar onShare={handleShare} />
+                        </div>
                       )}
                       
-                      {/* Action Bar - Re-styled */}
-                      <div className="flex items-center justify-between w-full max-w-4xl bg-gray-50/50 rounded-lg p-1.5 mt-4 border border-gray-100/50">
-                          <div className="flex items-center gap-2">
-                               <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200/60 rounded-md shadow-sm hover:text-purple-700 hover:border-purple-200 transition-all">
-                                  <RotateCcw size={12} /> 
-                                  Regenerate 
-                                  <ChevronDown size={12} className="text-gray-400 ml-1" />
-                               </button>
-                               <div className="flex items-center gap-0.5 ml-1">
-                                   <button className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Thumbs Up"><ThumbsUp size={14} /></button>
-                                   <button className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Thumbs Down"><ThumbsDown size={14} /></button>
-                               </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                               <button className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" onClick={() => handleShare('whatsapp')} title="WhatsApp"><WhatsAppIcon size={15} /></button>
-                               <button className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" onClick={() => handleShare('email')} title="Email"><Mail size={15} /></button>
-                               <button className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Copy"><Copy size={14} /></button>
-                          </div>
-                      </div>
-
                    </div>
                 </div>
              ) : (

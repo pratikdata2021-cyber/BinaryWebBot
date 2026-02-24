@@ -35,9 +35,14 @@ const Navbar: React.FC = () => {
 
       {/* CTA Button */}
       <div>
-        <button className="bg-[#B91C83] hover:bg-[#9d156e] text-white px-6 py-2.5 rounded-full font-medium text-sm transition-all shadow-lg shadow-purple-200 transform hover:-translate-y-0.5">
+        <a 
+          href="https://binarysemantics.com/contact-us"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-[#B91C83] hover:bg-[#9d156e] text-white px-6 py-2.5 rounded-full font-medium text-sm transition-all shadow-lg shadow-purple-200 transform hover:-translate-y-0.5"
+        >
           Contact Us ›
-        </button>
+        </a>
       </div>
     </nav>
   );
